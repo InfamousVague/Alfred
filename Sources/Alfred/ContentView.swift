@@ -246,7 +246,7 @@ struct ContentView: View {
                                 .foregroundStyle(.orange)
                                 .clipShape(Capsule())
                         }
-                        Text("\(items.count)")
+                        PaddedCount(items.count)
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 6)
@@ -368,7 +368,10 @@ struct ContentView: View {
                 Spacer()
 
                 if store.phase == .results, !store.finds.isEmpty {
-                    Text("\(store.selectedFinds.count) · \(fmtBytes(store.selectedBytes))")
+                    HStack(spacing: 4) {
+                        PaddedCount(store.selectedFinds.count)
+                        Text("· \(fmtBytes(store.selectedBytes))")
+                    }
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
