@@ -85,6 +85,7 @@ struct SettingsView: View {
             .padding(.vertical, 12)
         }
         .frame(width: 460)
+        .glassScrollers()
     }
 
     // MARK: Roots

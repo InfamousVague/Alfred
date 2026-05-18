@@ -30,6 +30,7 @@ struct ContentView: View {
             footer
         }
         .frame(width: 404, height: 600)
+        .glassScrollers()
         // Brand-tint controls (buttons, the checkbox, .tint usages)
         // the way Espresso applies `.tint(accent)` panel-wide.
         .tint(.alfredAccent)
