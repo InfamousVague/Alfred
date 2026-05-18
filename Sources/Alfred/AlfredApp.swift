@@ -33,7 +33,12 @@ struct AlfredApp: App {
                 accessibilityDescription: "Alfred"
             ) ?? NSImage()
         }
-        let height: CGFloat = 15
+        // 18pt: the duster glyph is now tightly cropped (no square
+        // padding), so this height is the GLYPH's height, not a
+        // padded box's — it fills the menu bar like a normal status
+        // glyph instead of reading tiny. Width follows the glyph's
+        // natural aspect so it never distorts.
+        let height: CGFloat = 18
         let aspect = image.size.width / max(image.size.height, 1)
         image.size = NSSize(width: height * aspect, height: height)
         image.isTemplate = true

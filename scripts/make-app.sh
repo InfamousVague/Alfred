@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 APP="$ROOT/Alfred.app"
 SRC_ICON="$ROOT/art/AppIcon-source.png"
-VERSION="0.1.1"
+VERSION="0.1.2"
 # Same Developer ID the other menu-bar apps use; override with
 # SIGN_IDENTITY=- for an ad-hoc local build.
 SIGN_IDENTITY="${SIGN_IDENTITY:-0948896DC970503ADEF5B5070E0BB3E9D9047757}"
@@ -87,4 +87,33 @@ if [ "${SKIP_DMG:-0}" != "1" ]; then
   hdiutil create -quiet -volname "Alfred" -srcfolder "$STAGE" \
     -ov -format UDZO "$DMG"
   echo "✓ built $DMG"
+fi
+
+# ── Notarize + staple (Developer ID builds only) ──────────────────
+# Submits the signed .app, staples the ticket onto the .app itself
+# (so the installed /Applications copy is Gatekeeper-trusted even
+# offline) and onto the .dmg if one was built. Non-fatal: a
+# creds-less or rejected build still completes, just signed-only.
+NOTARY_PROFILE="${NOTARY_PROFILE:-Notary}"
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_IDENTITY"; then
+  echo "› notarizing $APP (waits on Apple)…"
+  NZIP="$(mktemp -d)/notarize.zip"
+  ditto -c -k --keepParent "$APP" "$NZIP"
+  if xcrun notarytool submit "$NZIP" \
+       --keychain-profile "$NOTARY_PROFILE" --wait; then
+    if xcrun stapler staple "$APP"; then
+      if xcrun stapler validate "$APP"; then
+        echo "✓ notarized + stapled $APP"
+      else
+        echo "⚠ staple validate failed for $APP"
+      fi
+      if [ -f "$DMG" ]; then
+        if xcrun stapler staple "$DMG"; then echo "✓ stapled $DMG"; fi
+      fi
+    else
+      echo "⚠ stapling failed for $APP"
+    fi
+  else
+    echo "⚠ notarization skipped/failed — $APP signed but not notarized"
+  fi
 fi

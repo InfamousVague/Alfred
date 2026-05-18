@@ -58,7 +58,13 @@ struct ContentView: View {
                     .resizable()
                     .renderingMode(.template)
                     .interpolation(.high)
-                    .frame(width: 18, height: 18)
+                    // The glyph is now a tall, tightly-cropped duster
+                    // (aspect ~0.71). aspectRatio(.fit) keeps it from
+                    // being squashed into a square box; a 24pt tall
+                    // frame makes it read at a confident size beside
+                    // the wordmark instead of tiny-with-whitespace.
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
                     .foregroundStyle(Color.alfredAccent)
                 Text("ALFRED")
                     .font(.system(size: 13, weight: .semibold))
