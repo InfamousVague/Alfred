@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 APP="$ROOT/Alfred.app"
 SRC_ICON="$ROOT/art/AppIcon-source.png"
-VERSION="0.1.2"
+VERSION="0.1.3"
 # Same Developer ID the other menu-bar apps use; override with
 # SIGN_IDENTITY=- for an ad-hoc local build.
 SIGN_IDENTITY="${SIGN_IDENTITY:-0948896DC970503ADEF5B5070E0BB3E9D9047757}"
@@ -50,6 +50,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleDisplayName</key><string>Alfred</string>
   <key>CFBundleIdentifier</key><string>com.mattssoftware.alfred</string>
   <key>CFBundleExecutable</key><string>Alfred</string>
+  <key>CFBundleURLTypes</key>
+  <array><dict>
+    <key>CFBundleURLName</key><string>com.mattssoftware.alfred</string>
+    <key>CFBundleURLSchemes</key><array><string>alfred</string></array>
+  </dict></array>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
