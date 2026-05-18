@@ -79,10 +79,11 @@ struct AlfredApp: App {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     let store = AlfredStore()
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
+    private var clickMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -98,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         popover.behavior = .transient
+        popover.delegate = self
         popover.contentViewController = NSHostingController(
             rootView: ContentView()
                 .environment(store)
@@ -121,9 +123,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             of: button,
             preferredEdge: .minY
         )
+        if let win = popover.contentViewController?.view.window {
+            clampOnScreen(win, anchoredTo: button)
+            win.makeKey()
+        }
         NSApp.activate(ignoringOtherApps: true)
+        if let m = clickMonitor { NSEvent.removeMonitor(m) }
+        clickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] _ in
+            self?.popover.performClose(nil)
+        }
         // First open kicks the initial scan — opening a menu-bar
         // cleaner should immediately start showing what it found.
         store.scanIfNeeded()
+    }
+
+    /// Keep the popover fully on the screen that holds the status
+    /// item. NSPopover centers on the icon and clips when the icon
+    /// is near a screen edge (notably far right / next to the
+    /// notch); shift the window back inside the visible frame.
+    private func clampOnScreen(_ win: NSWindow, anchoredTo anchor: NSView) {
+        guard let screen = anchor.window?.screen ?? NSScreen.main
+        else { return }
+        let vis = screen.visibleFrame
+        let pad: CGFloat = 8
+        var f = win.frame
+        if f.maxX > vis.maxX - pad { f.origin.x = vis.maxX - pad - f.width }
+        if f.minX < vis.minX + pad { f.origin.x = vis.minX + pad }
+        if f.minY < vis.minY + pad { f.origin.y = vis.minY + pad }
+        if f != win.frame { win.setFrame(f, display: true) }
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        if let m = clickMonitor {
+            NSEvent.removeMonitor(m)
+            clickMonitor = nil
+        }
+    }
+
+    /// `alfred://` deep link (e.g. opened from Stats' disk panel) —
+    /// surface the cleaner and start a scan.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        showPopover()
     }
 }
