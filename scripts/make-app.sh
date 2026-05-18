@@ -77,23 +77,14 @@ fi
 
 echo "✓ built $APP"
 
-# Optional downloadable .dmg (Alfred.app + /Applications drop target).
-if [ "${SKIP_DMG:-0}" != "1" ]; then
-  STAGE="$(mktemp -d)/dmg"
-  mkdir -p "$STAGE"
-  cp -R "$APP" "$STAGE/Alfred.app"
-  ln -s /Applications "$STAGE/Applications"
-  rm -f "$DMG"
-  hdiutil create -quiet -volname "Alfred" -srcfolder "$STAGE" \
-    -ov -format UDZO "$DMG"
-  echo "✓ built $DMG"
-fi
-
-# ── Notarize + staple (Developer ID builds only) ──────────────────
-# Submits the signed .app, staples the ticket onto the .app itself
-# (so the installed /Applications copy is Gatekeeper-trusted even
-# offline) and onto the .dmg if one was built. Non-fatal: a
-# creds-less or rejected build still completes, just signed-only.
+# ── Notarize + staple the .app (Developer ID builds only) ─────────
+# Runs BEFORE the .dmg is built so the disk image wraps an
+# already-stapled app — the copy a user drags to /Applications is
+# Gatekeeper-trusted even offline. We notarize the zipped app, so the
+# ticket rides on the .app; the .dmg is signed but not stapled (its
+# first mount does a one-time online check, fine for a freshly
+# downloaded installer). Non-fatal: a creds-less or rejected build
+# still completes, just signed-only.
 NOTARY_PROFILE="${NOTARY_PROFILE:-Notary}"
 if security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_IDENTITY"; then
   echo "› notarizing $APP (waits on Apple)…"
@@ -107,13 +98,25 @@ if security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_IDENTIT
       else
         echo "⚠ staple validate failed for $APP"
       fi
-      if [ -f "$DMG" ]; then
-        if xcrun stapler staple "$DMG"; then echo "✓ stapled $DMG"; fi
-      fi
     else
       echo "⚠ stapling failed for $APP"
     fi
   else
     echo "⚠ notarization skipped/failed — $APP signed but not notarized"
   fi
+fi
+
+# Optional downloadable .dmg from the (now-stapled) Alfred.app.
+if [ "${SKIP_DMG:-0}" != "1" ]; then
+  STAGE="$(mktemp -d)/dmg"
+  mkdir -p "$STAGE"
+  cp -R "$APP" "$STAGE/Alfred.app"
+  ln -s /Applications "$STAGE/Applications"
+  rm -f "$DMG"
+  hdiutil create -quiet -volname "Alfred" -srcfolder "$STAGE" \
+    -ov -format UDZO "$DMG"
+  if security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_IDENTITY"; then
+    codesign --force --sign "$SIGN_IDENTITY" "$DMG" || true
+  fi
+  echo "✓ built $DMG"
 fi
