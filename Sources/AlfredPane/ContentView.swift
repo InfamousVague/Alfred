@@ -29,7 +29,7 @@ struct ContentView: View {
             Divider()
             footer
         }
-        .frame(width: 404, height: 600)
+        .frame(width: 340, height: 540)
         .glassScrollers()
         // Brand-tint controls (buttons, the checkbox, .tint usages)
         // the way Espresso applies `.tint(accent)` panel-wide.
@@ -55,7 +55,7 @@ struct ContentView: View {
                 // The tray glyph itself, tinted in the brand accent —
                 // exactly how Espresso shows its cup glyph in crema
                 // in the panel header (vs. the full-colour app icon).
-                Image(nsImage: AlfredApp.trayGlyph)
+                Image(nsImage: AlfredBrand.trayGlyph)
                     .resizable()
                     .renderingMode(.template)
                     .interpolation(.high)
@@ -368,13 +368,9 @@ struct ContentView: View {
                 Spacer()
 
                 if store.phase == .results, !store.finds.isEmpty {
-                    HStack(spacing: 4) {
-                        PaddedCount(store.selectedFinds.count)
-                        Text("· \(fmtBytes(store.selectedBytes))")
-                    }
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+                    // Selected count/size readout removed — it just
+                    // duplicated the hero's reclaimable total + item
+                    // count shown up top.
                     Button(
                         store.selected.count == store.finds.count
                             ? "None" : "All"

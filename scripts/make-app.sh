@@ -36,10 +36,17 @@ iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 # nested code bundle, so flatten its resources into Contents/Resources
 # (loaded via Bundle.main in the .app; Bundle.module serves `swift run`).
 cp "$BIN/Alfred" "$APP/Contents/MacOS/Alfred"
-if [ -d "$BIN/Alfred_Alfred.bundle" ]; then
-  find "$BIN/Alfred_Alfred.bundle" -type f \( -name '*.png' -o -name '*.icns' \) \
-    -exec cp {} "$APP/Contents/Resources/" \;
-fi
+
+# ── Embed + (below) sign the SuiteKit contract and this
+# app's pane dylib so the MattsSoftware launcher can load
+# the SAME code out of this installed .app. rpath lets the
+# bundled exe find them under Contents/Frameworks.
+mkdir -p "$APP/Contents/Frameworks"
+cp "$BIN/libSuiteKit.dylib" "$APP/Contents/Frameworks/"
+cp "$BIN/libAlfredPane.dylib" "$APP/Contents/Frameworks/"
+if [ -d "$BIN/Alfred_AlfredPane.bundle" ]; then find "$BIN/Alfred_AlfredPane.bundle" -type f \( -name '*.png' -o -name '*.icns' \) -exec cp {} "$APP/Contents/Resources/" \; ; fi
+install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS/Alfred" 2>/dev/null || true
+
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -70,6 +77,10 @@ PLIST
 # Sign with the Developer ID if present (hardened runtime),
 # otherwise ad-hoc so it still runs locally.
 if security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_IDENTITY"; then
+  codesign --force --options runtime --timestamp \
+    --sign "$SIGN_IDENTITY" "$APP/Contents/Frameworks/libSuiteKit.dylib"
+  codesign --force --options runtime --timestamp \
+    --sign "$SIGN_IDENTITY" "$APP/Contents/Frameworks/libAlfredPane.dylib"
   codesign --force --options runtime --timestamp \
     --sign "$SIGN_IDENTITY" "$APP/Contents/MacOS/Alfred"
   codesign --force --options runtime --timestamp \
