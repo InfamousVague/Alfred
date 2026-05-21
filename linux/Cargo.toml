@@ -1,0 +1,19 @@
+[package]
+name = "alfred-linux"
+version = "0.1.8"
+edition = "2021"
+description = "Linux build of Alfred (part of the MattsSoftware suite)."
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "alfred"
+path = "src/main.rs"
+
+[dependencies]
+# Filled in iteratively. Initial pick:
+#   ignore    = "0.4"
+#   trash     = "5"
+#   ksni      = "0.2"
+#   clap      = { version = "4", features = ["derive"] }
+#   anyhow    = "1"
