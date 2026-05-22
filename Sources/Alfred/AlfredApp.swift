@@ -19,7 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate,
     NSPopoverDelegate
 {
     private let pane = AlfredPaneProvider()
-    private var statusItem: NSStatusItem!
+    // Optional — stays nil in merged-deferred mode (launcher hosts
+    // the visible Alfred; this process exists only to handle widget
+    // AppIntents before exiting). showPopover() guards against nil
+    // so an intent firing in that mode just runs the scan without
+    // trying to surface UI that doesn't exist.
+    private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var clickMonitor: Any?
 
@@ -61,9 +66,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate,
             return
         }
 
-        statusItem = NSStatusBar.system.statusItem(
+        let item = NSStatusBar.system.statusItem(
             withLength: NSStatusItem.variableLength)
-        if let button = statusItem.button {
+        statusItem = item
+        if let button = item.button {
             button.image = pane.paneMenuBarImage()
             button.action = #selector(togglePopover(_:))
             button.target = self
@@ -83,7 +89,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate,
     }
 
     private func showPopover() {
-        guard let button = statusItem.button else { return }
+        // Nil in merged mode (no status item was created). Bail
+        // silently — an intent that triggered our launch still gets
+        // to run its work via the IntentBus closures.
+        guard let statusItem, let button = statusItem.button else {
+            return
+        }
         popover.show(relativeTo: button.bounds, of: button,
                      preferredEdge: .minY)
         if let win = popover.contentViewController?.view.window {

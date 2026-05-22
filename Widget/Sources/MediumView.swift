@@ -38,11 +38,14 @@ struct MediumView: View {
 
                 Spacer(minLength: 0)
 
-                // Hand-rolled pills. The default .bordered /
-                // .borderedProminent combos rendered as thin white
-                // capsules with invisible labels on the dark widget
-                // card (same hue front + back); explicit foreground
-                // + capsule background gives guaranteed contrast.
+                // Hand-rolled pills with HARDCODED Alfred green
+                // (#2f8b48). Color.accentColor was resolving to white
+                // on the widget surface, producing invisible buttons;
+                // semantic colors like .primary / .secondary were
+                // similarly washing out. Explicit RGB values guarantee
+                // the capsule + label contrast.
+                let alfredGreen = Color(
+                    red: 0.184, green: 0.545, blue: 0.282)
                 HStack(spacing: 6) {
                     Button(intent: ScanIntent()) {
                         HStack(spacing: 4) {
@@ -50,11 +53,12 @@ struct MediumView: View {
                             Text("Scan")
                         }
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.primary)
+                        .foregroundStyle(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 5)
-                        .background(Color.secondary.opacity(0.25),
-                                    in: Capsule())
+                        .background(
+                            Color.black.opacity(0.35),
+                            in: Capsule())
                     }
                     .buttonStyle(.plain)
 
@@ -69,8 +73,8 @@ struct MediumView: View {
                         .padding(.vertical, 5)
                         .background(
                             entry.stats.itemCount == 0
-                                ? Color.accentColor.opacity(0.35)
-                                : Color.accentColor,
+                                ? alfredGreen.opacity(0.35)
+                                : alfredGreen,
                             in: Capsule())
                     }
                     .buttonStyle(.plain)

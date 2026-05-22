@@ -41,12 +41,12 @@ struct SmallView: View {
 
             Spacer(minLength: 0)
 
-            // Hand-rolled pill so the label stays legible. The default
-            // .borderedProminent + .tint combo was rendering as a thin
-            // white capsule with no visible text on the dark widget
-            // card (foreground and background ended up the same hue).
-            // Explicit foreground colour + a Capsule background gives
-            // us guaranteed contrast regardless of the system accent.
+            // Hand-rolled pill. Don't rely on Color.accentColor here
+            // — in the widget render pass it's resolving to white,
+            // producing a solid-white capsule with white text (= no
+            // visible button). Hardcode Alfred's brand green (the
+            // same #2f8b48 the app icon uses) so the contrast is
+            // guaranteed regardless of system / widget tint state.
             Button(intent: ScanIntent()) {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.clockwise")
@@ -56,7 +56,9 @@ struct SmallView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(Color.accentColor, in: Capsule())
+                .background(
+                    Color(red: 0.184, green: 0.545, blue: 0.282),
+                    in: Capsule())
             }
             .buttonStyle(.plain)
         }
