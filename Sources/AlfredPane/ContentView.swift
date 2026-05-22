@@ -19,6 +19,7 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+                .frame(height: 46)
             Divider()
             hero
             if let err = store.errorMessage {
@@ -28,6 +29,7 @@ struct ContentView: View {
             content
             Divider()
             footer
+                .frame(height: 46)
         }
         .frame(width: 340, height: 540)
         .glassScrollers()
@@ -76,7 +78,6 @@ struct ContentView: View {
                         .scaleEffect(0.6)
                         .frame(width: 12, height: 12)
                 } else {
-                    LiveDot()
                 }
             }
             Spacer()
@@ -279,9 +280,9 @@ struct ContentView: View {
             }
         }
         .background(Color.primary.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .stroke(Color.primary.opacity(0.06), lineWidth: 1)
         )
     }

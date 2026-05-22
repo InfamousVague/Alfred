@@ -47,6 +47,52 @@ cp "$BIN/libAlfredPane.dylib" "$APP/Contents/Frameworks/"
 if [ -d "$BIN/Alfred_AlfredPane.bundle" ]; then find "$BIN/Alfred_AlfredPane.bundle" -type f \( -name '*.png' -o -name '*.icns' \) -exec cp {} "$APP/Contents/Resources/" \; ; fi
 install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS/Alfred" 2>/dev/null || true
 
+# ── Widget extension (.appex) ─────────────────────────────────────
+# Built by Xcode, not SwiftPM. SwiftPM has no `productType = app-
+# extension` (SR-14944), and without it ExtensionFoundation fatal-
+# errors with "Unrecognized extension type" at launch. The widget
+# is a tiny Xcode subproject at `Widget/AlfredWidgets.xcodeproj`
+# that consumes `AlfredShared` from this package via a local-package
+# dependency so the host pane and the widget share one source of
+# truth for the App Group, `SharedStats`, and the AppIntents.
+#
+# SKIP_WIDGET=1 lets you iterate on the host without paying the
+# xcodebuild cost on every build.
+if [ "${SKIP_WIDGET:-0}" != "1" ]; then
+  # xcodegen regenerates the .xcodeproj from project.yml — keeps
+  # the build deterministic across machines (no hand-edited pbxproj
+  # drift) and means `make-app.sh` is the only thing devs ever run.
+  if command -v xcodegen >/dev/null; then
+    ( cd "$ROOT/Widget" && xcodegen generate --quiet )
+  fi
+  echo "› xcodebuild AlfredWidgets.appex"
+  XCB_OUT="$ROOT/.build/xcode"
+  xcodebuild \
+    -project "$ROOT/Widget/AlfredWidgets.xcodeproj" \
+    -scheme AlfredWidgets \
+    -configuration Release \
+    -derivedDataPath "$XCB_OUT" \
+    MARKETING_VERSION="$VERSION" \
+    CURRENT_PROJECT_VERSION="$VERSION" \
+    CODE_SIGN_IDENTITY="-" \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGNING_ALLOWED=NO \
+    -quiet \
+    build
+  # Drop the freshly-built .appex into the host's PlugIns dir.
+  # Sign-pass below picks it up and re-signs inside-out with the
+  # widget entitlements and the host's Developer-ID identity.
+  WIDGET_APPEX="$XCB_OUT/Build/Products/Release/AlfredWidgets.appex"
+  if [ -d "$WIDGET_APPEX" ]; then
+    mkdir -p "$APP/Contents/PlugIns"
+    rm -rf "$APP/Contents/PlugIns/AlfredWidgets.appex"
+    ditto "$WIDGET_APPEX" "$APP/Contents/PlugIns/AlfredWidgets.appex"
+    echo "✓ embedded $APP/Contents/PlugIns/AlfredWidgets.appex"
+  else
+    echo "⚠ widget build produced no .appex at $WIDGET_APPEX"
+  fi
+fi
+
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -76,14 +122,37 @@ PLIST
 
 # Sign with the Developer ID if present (hardened runtime),
 # otherwise ad-hoc so it still runs locally.
+#
+# Inside-out is required (codesign rejects a parent bundle whose
+# children aren't yet signed):
+#   dylibs → widget exe (extension entitlements) → widget bundle
+#   → host exe (host entitlements) → host bundle.
+# The host's App Group entitlement is what lets it write to the
+# Group Container the extension reads — drift between
+# `Alfred.entitlements` and `AlfredWidgets.entitlements` (different
+# group ids) silently breaks the data path with no error.
+HOST_ENT="$ROOT/Alfred.entitlements"
+WIDGET_ENT="$ROOT/Widget/Supporting Files/AlfredWidgets.entitlements"
 if security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_IDENTITY"; then
   codesign --force --options runtime --timestamp \
     --sign "$SIGN_IDENTITY" "$APP/Contents/Frameworks/libSuiteKit.dylib"
   codesign --force --options runtime --timestamp \
     --sign "$SIGN_IDENTITY" "$APP/Contents/Frameworks/libAlfredPane.dylib"
+  if [ -d "$APP/Contents/PlugIns/AlfredWidgets.appex" ]; then
+    codesign --force --options runtime --timestamp \
+      --entitlements "$WIDGET_ENT" \
+      --sign "$SIGN_IDENTITY" \
+      "$APP/Contents/PlugIns/AlfredWidgets.appex/Contents/MacOS/AlfredWidgets"
+    codesign --force --options runtime --timestamp \
+      --entitlements "$WIDGET_ENT" \
+      --sign "$SIGN_IDENTITY" \
+      "$APP/Contents/PlugIns/AlfredWidgets.appex"
+  fi
   codesign --force --options runtime --timestamp \
+    --entitlements "$HOST_ENT" \
     --sign "$SIGN_IDENTITY" "$APP/Contents/MacOS/Alfred"
   codesign --force --options runtime --timestamp \
+    --entitlements "$HOST_ENT" \
     --sign "$SIGN_IDENTITY" "$APP"
   codesign --verify --strict --verbose=1 "$APP" && echo "✓ signed: $SIGN_IDENTITY"
 else

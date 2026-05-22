@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Alfred host entitlements. Just the App Group so the host can write
+  SharedStats into the Group Container the AlfredWidgets extension
+  reads. NOT sandboxed: the scanner walks the user's whole home and
+  the Trash codepath needs FileManager.trashItem on arbitrary user
+  paths — both incompatible with the App Sandbox.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.application-groups</key>
+  <array>
+    <string>F6ZAL7ANAD.group.com.mattssoftware.alfred</string>
+  </array>
+</dict>
+</plist>

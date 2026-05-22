@@ -1,6 +1,8 @@
 import Foundation
 import Observation
 import AppKit
+import WidgetKit
+import AlfredShared
 
 /// Persisted user settings — a small JSON file in Application
 /// Support. Mirrors the field set of the original design.
@@ -94,6 +96,7 @@ final class AlfredStore {
                 self.totalBytes = result.reduce(0) { $0 + $1.sizeBytes }
                 self.selected = Set(result.map(\.id))
                 self.phase = .results
+                self.publishWidgetSnapshot(event: .scanFinished)
             }
         }
     }
@@ -124,6 +127,21 @@ final class AlfredStore {
         selected = all ? Set(finds.map(\.id)) : []
     }
 
+    /// Re-select just the safe-confidence finds (skipping every
+    /// review-tier item) and run a clean. Used by the widget's
+    /// `CleanAllSafeIntent` so a single click can never trash a
+    /// venv / Pods / bare dist/ without the panel.
+    func cleanAllSafe() {
+        let safeIDs: Set<String> = Set(
+            finds
+                .filter { Catalog.category($0.categoryID)?.confidence == .safe }
+                .map(\.id)
+        )
+        guard !safeIDs.isEmpty else { return }
+        selected = safeIDs
+        cleanSelected()
+    }
+
     // MARK: Clean
 
     func cleanSelected() {
@@ -149,8 +167,72 @@ final class AlfredStore {
                         "\(out.failures.count) item(s) couldn't be removed: \(first.error)"
                 }
                 self.phase = .results
+                self.publishWidgetSnapshot(event: .cleanFinished(
+                    freed: out.freedBytes
+                ))
             }
         }
+    }
+
+    // MARK: Widget snapshot
+
+    /// Reasons the snapshot is being published. Affects whether
+    /// `lastFreed*` fields update (clean) vs. just rolling the
+    /// totals + categories (scan).
+    enum SnapshotEvent {
+        case scanFinished
+        case cleanFinished(freed: Int64)
+    }
+
+    /// Persist a fresh `SharedStats` payload into the App Group
+    /// container and tell every Alfred widget timeline to refresh.
+    /// Called from the main actor after each scan/clean completes.
+    private func publishWidgetSnapshot(event: SnapshotEvent) {
+        // Roll up the top 3 categories by total bytes — the medium
+        // widget shows these as rows. Items count is the total
+        // number of finds (matches the hero's "across N items").
+        var byCat: [String: (label: String, bytes: Int64, count: Int)] = [:]
+        for f in finds {
+            let label = Catalog.category(f.categoryID)?.label ?? f.categoryID
+            var e = byCat[f.categoryID] ?? (label, 0, 0)
+            e.bytes += f.sizeBytes
+            e.count += 1
+            byCat[f.categoryID] = e
+        }
+        let top = byCat
+            .map { CategoryBreakdown(
+                id: $0.key,
+                label: $0.value.label,
+                bytes: $0.value.bytes,
+                count: $0.value.count
+            ) }
+            .sorted { $0.bytes > $1.bytes }
+            .prefix(3)
+
+        // Preserve the previous `lastFreed*` on a scan-only event
+        // (clean updates them; a fresh scan shouldn't clobber the
+        // "you reclaimed X yesterday" line on the widget).
+        let prev = StatsStore.read()
+        var lastFreedBytes = prev?.lastFreedBytes
+        var lastFreedAt = prev?.lastFreedAt
+        if case .cleanFinished(let freed) = event {
+            lastFreedBytes = freed
+            lastFreedAt = Date()
+        }
+
+        let snapshot = SharedStats(
+            totalBytes: totalBytes,
+            itemCount: finds.count,
+            lastFreedBytes: lastFreedBytes,
+            lastFreedAt: lastFreedAt,
+            lastScanAt: Date(),
+            topCategories: Array(top)
+        )
+        StatsStore.write(snapshot)
+        // Wake every Alfred widget on the desktop so the new totals
+        // appear right away rather than waiting on the timeline
+        // policy's ~15-minute interval.
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     // MARK: Settings

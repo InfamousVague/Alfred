@@ -1,0 +1,67 @@
+# xcodegen spec for the Alfred widget extension. Tiny Xcode subproject
+# that owns the WidgetKit appex — everything else (the standalone
+# Alfred shim, the AlfredPane dylib, the AlfredShared library the
+# widget reads from) stays in `Package.swift` at the repo root. The
+# only reason this exists is that Swift Package Manager can't produce
+# a binary with `productType = com.apple.product-type.app-extension`,
+# which is what ExtensionFoundation needs at launch — see SR-14944.
+#
+# Build via the `xcodebuild` invocation in scripts/make-app.sh; that
+# bakes Alfred.app/Contents/PlugIns/AlfredWidgets.appex out of this.
+
+name: AlfredWidgets
+options:
+  bundleIdPrefix: com.mattssoftware.alfred
+  deploymentTarget:
+    macOS: "14.0"
+  developmentLanguage: en
+
+# Consume the SPM package at ../ — that's where AlfredShared lives.
+# The widget needs `SharedStats` (the Group-Container model the host
+# writes) and `Intents` (`ScanIntent` / `CleanAllSafeIntent` the
+# widget's buttons trigger).
+packages:
+  Alfred:
+    path: ..
+
+targets:
+  AlfredWidgets:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources
+    info:
+      path: Supporting Files/Info.plist
+      properties:
+        CFBundleDisplayName: Alfred Cleanup
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    # NB: NOT using `entitlements:` here. xcodegen's `entitlements.path`
+    # *overwrites* the file with an empty <dict/> on every regen unless
+    # we also pass `properties`, and a blank entitlements file makes
+    # pkd reject the appex with "plug-ins must be sandboxed". Point at
+    # the file via the standard Xcode build setting instead — Xcode
+    # reads it for signing but doesn't try to regenerate it.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mattssoftware.alfred.widget
+        PRODUCT_NAME: AlfredWidgets
+        CODE_SIGN_ENTITLEMENTS: Supporting Files/AlfredWidgets.entitlements
+        # Match the host app's developer-id-only flow. Manual signing
+        # so make-app.sh can re-sign inside-out before notarising.
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: F6ZAL7ANAD
+        # Pulled into Info.plist via $(MARKETING_VERSION) /
+        # $(CURRENT_PROJECT_VERSION). make-app.sh passes these in
+        # via xcodebuild -setting so the widget version always
+        # matches the host app's VERSION.
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "0.2.0"
+        # Hardened runtime so the same notarisation pass that wraps
+        # the host app's binary works on the widget too.
+        ENABLE_HARDENED_RUNTIME: YES
+        SKIP_INSTALL: YES
+    dependencies:
+      - package: Alfred
+        product: AlfredShared

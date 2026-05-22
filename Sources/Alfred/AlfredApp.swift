@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import AlfredPane
+import AlfredShared
 import SuiteKit
 
 // Standalone Alfred. Post-split this is just a host shim — the
@@ -43,6 +44,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate,
         popover.contentViewController = vc
 
         pane.paneStart()
+
+        // Widget AppIntents dispatch here. `ScanIntent` /
+        // `CleanAllSafeIntent` declare `openAppWhenRun = true`, so
+        // when the widget's button is tapped the system launches /
+        // wakes Alfred and runs `perform()` in THIS process — the
+        // intent forwards to `IntentBus`, which we now point at the
+        // running pane. We also show the popover so the user sees
+        // the scan/clean unfold instead of work happening invisibly.
+        //
+        // KNOWN LIMITATION: if the MattsSoftware launcher is hosting
+        // Alfred as a merged pane, `SuiteGuard.exitIfDeferring` at
+        // the top of this method would have already exited — meaning
+        // widget buttons silently no-op while merged. Stats still
+        // display (the launcher's hosted pane writes SharedStats);
+        // only the buttons depend on standalone Alfred being live.
+        // A future pass can either skip the deferral when launched
+        // via an intent or have the launcher register IntentBus too.
+        IntentBus.shared.register(
+            scan: { [weak self] in
+                self?.showPopover()
+                self?.pane.paneScan()
+            },
+            cleanSafe: { [weak self] in
+                self?.showPopover()
+                self?.pane.paneCleanAllSafe()
+            }
+        )
     }
 
     @objc private func togglePopover(_ sender: Any?) {

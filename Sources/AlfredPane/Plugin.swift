@@ -32,6 +32,15 @@ public final class AlfredPaneProvider: NSObject, SuitePane {
     /// Standalone parity: the shim calls this when its popover opens
     /// so reopening re-checks for new cruft.
     public func paneDidOpen() { store.scanIfNeeded() }
+
+    /// Trigger a scan from outside the pane (the widget's ScanIntent
+    /// routes here via the host's `IntentBus` registration).
+    public func paneScan() { store.rescan() }
+
+    /// Clean every SAFE-tier find. Review-tier items (venvs, Pods,
+    /// bare dist/) are skipped — a widget button must never be able
+    /// to delete something the panel marks for human review.
+    public func paneCleanAllSafe() { store.cleanAllSafe() }
 }
 
 @_cdecl("suitePaneCreate")
