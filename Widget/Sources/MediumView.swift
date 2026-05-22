@@ -38,21 +38,42 @@ struct MediumView: View {
 
                 Spacer(minLength: 0)
 
+                // Hand-rolled pills. The default .bordered /
+                // .borderedProminent combos rendered as thin white
+                // capsules with invisible labels on the dark widget
+                // card (same hue front + back); explicit foreground
+                // + capsule background gives guaranteed contrast.
                 HStack(spacing: 6) {
                     Button(intent: ScanIntent()) {
-                        Label("Scan", systemImage: "arrow.clockwise")
-                            .font(.system(size: 10, weight: .medium))
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Scan")
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(Color.secondary.opacity(0.25),
+                                    in: Capsule())
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                    .buttonStyle(.plain)
 
                     Button(intent: CleanAllSafeIntent()) {
-                        Label("Clean", systemImage: "trash")
-                            .font(.system(size: 10, weight: .medium))
+                        HStack(spacing: 4) {
+                            Image(systemName: "trash")
+                            Text("Clean")
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(
+                            entry.stats.itemCount == 0
+                                ? Color.accentColor.opacity(0.35)
+                                : Color.accentColor,
+                            in: Capsule())
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .tint(.accentColor)
+                    .buttonStyle(.plain)
                     .disabled(entry.stats.itemCount == 0)
                 }
             }

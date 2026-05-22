@@ -35,6 +35,13 @@ targets:
       path: Supporting Files/Info.plist
       properties:
         CFBundleDisplayName: Alfred Cleanup
+        # $(VAR) literals — xcodebuild substitutes these at build time
+        # from MARKETING_VERSION / CURRENT_PROJECT_VERSION (set in
+        # make-app.sh to match the host app's VERSION). Without these
+        # the Info.plist would bake in xcodegen's defaults (1.0 / 1)
+        # and ignore the xcodebuild CLI version overrides.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     # NB: NOT using `entitlements:` here. xcodegen's `entitlements.path`
