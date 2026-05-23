@@ -2,108 +2,95 @@ import SwiftUI
 import WidgetKit
 import AlfredShared
 
-/// `.systemMedium` layout — wider, so the headline number sits on
-/// the left and the top-3 category breakdown stacks on the right.
-/// Two buttons at the bottom (Scan + Clean safe) since there's
-/// room to also surface what would be cleaned.
+/// `.systemMedium` Alfred layout. Same chrome vocabulary as
+/// `SmallView` (tracked "ALFRED" caps brand, no SF Symbol) but in a
+/// two-column split: left = hero number + headline + Scan + Clean,
+/// right = top-3 category rollup. Matches Stats' / Port's medium
+/// proportions.
 struct MediumView: View {
     let entry: AlfredEntry
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            // Left: brand + hero + last-freed line.
+            // ── Left column: brand → hero → freed line → buttons.
             VStack(alignment: .leading, spacing: 4) {
                 Text("ALFRED")
                     .font(.system(size: 9, weight: .semibold))
                     .tracking(1.5)
                     .foregroundStyle(.secondary)
+                    .widgetAccentable()
+
+                Spacer(minLength: 0)
 
                 Text(fmtBytes(entry.stats.totalBytes))
-                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .font(.system(.largeTitle, design: .rounded).weight(.bold))
                     .monospacedDigit()
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
 
                 Text(headline)
-                    .font(.system(size: 10))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 if let freed = entry.stats.lastFreedBytes, freed > 0 {
-                    Text("freed \(fmtBytes(freed)) · \(fmtAgo(entry.stats.lastFreedAt))")
-                        .font(.system(size: 9))
+                    Text("Freed \(fmtBytes(freed)) · \(fmtAgo(entry.stats.lastFreedAt))")
+                        .font(.caption2)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 6)
 
-                // Hand-rolled pills with HARDCODED Alfred green
-                // (#2f8b48). Color.accentColor was resolving to white
-                // on the widget surface, producing invisible buttons;
-                // semantic colors like .primary / .secondary were
-                // similarly washing out. Explicit RGB values guarantee
-                // the capsule + label contrast.
-                let alfredGreen = Color(
-                    red: 0.184, green: 0.545, blue: 0.282)
+                // Two-button row: Clean (text-only, meaningful
+                // action) + Scan (icon-only refresh glyph, secondary
+                // "just re-measure"). Same pattern Quarantine adopted
+                // for Defang + Rescan — keeps the family consistent.
+                // Both `.bordered` so the dimmed widget state on
+                // macOS Tahoe stays legible (cf. `.borderedProminent`
+                // desaturating to white-on-white).
                 HStack(spacing: 6) {
-                    Button(intent: ScanIntent()) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.clockwise")
-                            Text("Scan")
-                        }
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(
-                            Color.black.opacity(0.35),
-                            in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-
                     Button(intent: CleanAllSafeIntent()) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "trash")
-                            Text("Clean")
-                        }
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(
-                            entry.stats.itemCount == 0
-                                ? alfredGreen.opacity(0.35)
-                                : alfredGreen,
-                            in: Capsule())
+                        Text("Clean")
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                     .disabled(entry.stats.itemCount == 0)
+
+                    Button(intent: ScanIntent()) {
+                        Label("Scan", systemImage: "arrow.clockwise")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("Scan")
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Right: top-3 category rollup. Sized to ~half the
-            // tile; rows truncate gracefully on narrower medium
-            // layouts (some themes squeeze the medium tile).
+            // ── Right column: category rollup. Header matches the
+            // tracked-caps brand vocabulary on the left, just dimmer.
             VStack(alignment: .leading, spacing: 4) {
                 Text("TOP")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.system(size: 9, weight: .semibold))
                     .tracking(1.2)
                     .foregroundStyle(.tertiary)
+                    .widgetAccentable()
+
                 if entry.stats.topCategories.isEmpty {
-                    Text("no scan yet")
-                        .font(.system(size: 10))
+                    Text("No scan yet")
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 } else {
                     ForEach(entry.stats.topCategories.prefix(3)) { row in
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(row.label)
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.caption)
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                             Spacer(minLength: 4)
                             Text(fmtBytes(row.bytes))
-                                .font(.system(size: 10))
+                                .font(.caption)
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
                         }
@@ -113,12 +100,15 @@ struct MediumView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(12)
+        // Bumped from 12 to 16 — same breathing-room fix as Small.
+        // Medium has a TOP-categories column on the right that sat
+        // hard against the edge at 12pt.
+        .padding(16)
     }
 
     private var headline: String {
-        if entry.stats.itemCount == 0 { return "tidy machine" }
-        return "across \(entry.stats.itemCount) item" +
+        if entry.stats.itemCount == 0 { return "Tidy machine" }
+        return "Across \(entry.stats.itemCount) item" +
             (entry.stats.itemCount == 1 ? "" : "s")
     }
 }
